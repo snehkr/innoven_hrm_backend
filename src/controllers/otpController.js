@@ -1,5 +1,6 @@
 const OTPLog = require('../models/OTPLog');
 const InstallationRequest = require('../models/InstallationRequest');
+const ServiceRequest = require('../models/ServiceRequest');
 const sendEmail = require('../services/emailService');
 const { successResponse, errorResponse } = require('../utils/responseHandler');
 const bcrypt = require('bcryptjs');
@@ -11,14 +12,23 @@ exports.sendOTP = async (req, res) => {
   try {
     const { request_id } = req.body;
 
-    const request = await InstallationRequest.findById(request_id).populate('customer_id');
+    let request = await InstallationRequest.findById(request_id).populate('customer_id');
+    let requestTypeStr = 'Installation';
+    
     if (!request) {
-      return errorResponse(res, 404, 'Installation request not found');
+      request = await ServiceRequest.findById(request_id).populate('customer_id');
+      if (request) requestTypeStr = request.request_type === 'repair' ? 'Repair' : 'Service';
     }
 
-    if (!request.customer_id) {
-        return errorResponse(res, 400, 'Customer details not found for this request');
+    if (!request) {
+      return errorResponse(res, 404, 'Service or installation request not found');
     }
+
+    if (!request.customer_id || !request.customer_id.email) {
+        return errorResponse(res, 400, 'Customer email is required for OTP verification');
+    }
+
+    const customerEmail = request.customer_id.email;
 
     // Generate 4 digit OTP
     const otp = Math.floor(1000 + Math.random() * 9000).toString();
@@ -32,25 +42,54 @@ exports.sendOTP = async (req, res) => {
 
     await OTPLog.create({
       request_id,
-      email: request.customer_id.email,
+      email: customerEmail,
       otp_code: hashedOtp,
       expires_at
     });
 
     // Send Email
-    const message = `Your TV Installation Verification OTP is: ${otp}. It is valid for 5 minutes.`;
+    const htmlTemplate = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
+        <div style="background-color: #2563eb; padding: 20px; text-align: center;">
+          <h2 style="color: white; margin: 0;">Service Verification</h2>
+        </div>
+        <div style="padding: 30px; background-color: #f8fafc;">
+          <p style="font-size: 16px; color: #334155;">Hello,</p>
+          <p style="font-size: 16px; color: #334155;">Your ${requestTypeStr} Verification OTP code is:</p>
+          <div style="margin: 30px 0; text-align: center;">
+            <span style="font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #1e293b; background-color: white; padding: 15px 30px; border-radius: 6px; border: 1px solid #cbd5e1;">${otp}</span>
+          </div>
+          <p style="font-size: 14px; color: #ef4444; text-align: center; font-weight: 500;">
+            This OTP is valid for 5 minutes. Do not share it with anyone.
+          </p>
+          <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 30px 0;" />
+          <p style="font-size: 12px; color: #94a3b8; text-align: center;">
+            Ticket Number: ${request.ticket_number}<br/>
+            &copy; ${new Date().getFullYear()} Service Lifecycle Management System
+          </p>
+        </div>
+      </div>
+    `;
+
     await sendEmail({
-      email: request.customer_id.email,
-      subject: 'Installation Verification OTP',
-      message
+      email: customerEmail,
+      subject: `${requestTypeStr} Verification OTP`,
+      message: `Your OTP is: ${otp}`,
+      html: htmlTemplate
     });
 
     // Update status
     request.status = 'OTP_SENT';
-    request.timeline.push({ status: 'OTP_SENT', note: 'OTP sent to customer' });
+    request.timeline.push({ status: 'OTP_SENT', note: 'OTP sent to customer email' });
     await request.save();
 
-    successResponse(res, 200, 'OTP sent to customer email successfully');
+    // Mask email for response
+    const emailParts = customerEmail.split('@');
+    const maskedEmail = emailParts[0].length > 2 
+      ? emailParts[0].substring(0, 2) + '*'.repeat(emailParts[0].length - 2) + '@' + emailParts[1]
+      : customerEmail;
+
+    successResponse(res, 200, 'OTP sent to customer email successfully', { masked_email: maskedEmail });
   } catch (error) {
     errorResponse(res, 500, 'Server Error', error.message);
   }
@@ -83,11 +122,17 @@ exports.verifyOTP = async (req, res) => {
     otpLog.is_used = true;
     await otpLog.save();
 
-    // Update request status
-    const request = await InstallationRequest.findById(request_id);
-    request.status = 'OTP_VERIFIED';
-    request.timeline.push({ status: 'OTP_VERIFIED', note: 'OTP successfully verified by engineer' });
-    await request.save();
+    // Update request status in whichever collection it belongs
+    let request = await InstallationRequest.findById(request_id);
+    if (!request) {
+      request = await ServiceRequest.findById(request_id);
+    }
+    
+    if (request) {
+      request.status = 'OTP_VERIFIED';
+      request.timeline.push({ status: 'OTP_VERIFIED', note: 'OTP successfully verified by engineer' });
+      await request.save();
+    }
 
     successResponse(res, 200, 'OTP verified successfully');
   } catch (error) {

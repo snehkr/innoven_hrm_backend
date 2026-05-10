@@ -78,23 +78,40 @@ async function testService() {
     step(2, "Registering Retailer...");
     const retailerRes = await request("/auth/register", "POST", {
       name: "Samsung Electronics",
-      email: `retailer.${SEED}@gmail.com`,
+      email: `retailer@gmail.com`,
       password: "pass123",
       role: "retailer",
     });
     assertStatus(retailerRes, 201, "Retailer registration");
     retailerToken = retailerRes.data.data.token;
 
-    // ── 3. Register Customer ────────────────────────────────────────────────
-    step(3, "Registering Customer...");
+    // ── 3. Register Customer (Auth User) ────────────────────────────────────
+    step(3, "Registering Customer (User)...");
     const customerRes = await request("/auth/register", "POST", {
       name: "Sneh Kumar",
       email: `snehkr.official@gmail.com`,
       password: "pass123",
       role: "customer",
     });
-    assertStatus(customerRes, 201, "Customer registration");
+    assertStatus(customerRes, 201, "Customer User registration");
     customerId = customerRes.data.data.user._id;
+
+    // ── 3.5 Create Customer Record (Retailer flow) ─────────────────────────
+    step(3.5, "Creating Customer Record via Retailer...");
+    const custRecordRes = await request(
+      "/customers",
+      "POST",
+      {
+        name: "Sneh Kumar",
+        phone: `98765${String(SEED).slice(-5)}`,
+        email: `snehkr.official@gmail.com`,
+        city: "Delhi",
+        state: "New Delhi",
+      },
+      retailerToken,
+    );
+    assertStatus(custRecordRes, 201, "Customer Record creation");
+    const customerRefId = custRecordRes.data.data.customer._id;
 
     // ── 4. Register Engineer ────────────────────────────────────────────────
     step(4, "Registering Engineer...");
@@ -115,9 +132,11 @@ async function testService() {
       "POST",
       {
         model_name: "Samsung QLED 65",
+        brand: "Samsung",
         serial_number: `SN-${SEED}`,
         warranty_period_months: 24,
         customer_id: customerId,
+        customer_ref: customerRefId,
       },
       retailerToken,
     );
@@ -137,6 +156,23 @@ async function testService() {
     assertStatus(instRes, 201, "Installation request created");
     requestId = instRes.data.data.request._id;
     pass(`Ticket: ${instRes.data.data.request.ticket_number}`);
+
+    // ── 6.5. Create Service/Repair Request ──────────────────────────────────
+    step(6.5, "Creating Repair Service Request...");
+    const repairRes = await request(
+      "/service-requests",
+      "POST",
+      {
+        customer_id: customerRefId,
+        product_id: productId,
+        request_type: "repair",
+        issue_type: "display_issue",
+        issue_description: "Screen flickering",
+      },
+      retailerToken,
+    );
+    assertStatus(repairRes, 201, "Repair request created");
+    pass(`Repair Ticket: ${repairRes.data.data.serviceRequest.ticket_number}`);
 
     // ── 7. Assign Engineer (by Admin) ───────────────────────────────────────
     step(7, "Assigning Engineer to ticket...");

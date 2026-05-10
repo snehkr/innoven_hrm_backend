@@ -8,13 +8,21 @@ exports.createCustomer = async (req, res) => {
   try {
     const { name, phone, alternate_phone, email, address, city, state, pincode } = req.body;
 
-    if (!name || !phone) {
-      return errorResponse(res, 400, 'Customer name and phone are required');
+    if (!name || !phone || !email) {
+      return errorResponse(res, 400, 'Customer name, phone, and email are required');
     }
 
-    const existing = await Customer.findOne({ phone, created_by: req.user.id });
+    const emailRegex = /^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/;
+    if (!emailRegex.test(email)) {
+      return errorResponse(res, 400, 'Please provide a valid email format');
+    }
+
+    const existing = await Customer.findOne({ 
+      $or: [{ phone }, { email }], 
+      created_by: req.user.id 
+    });
     if (existing) {
-      return errorResponse(res, 400, 'A customer with this phone number already exists in your account');
+      return errorResponse(res, 400, 'A customer with this phone number or email already exists in your account');
     }
 
     const customer = await Customer.create({
