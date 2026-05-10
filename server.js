@@ -3,8 +3,6 @@ const express = require("express");
 const cors = require("cors");
 const morgan = require("morgan");
 const helmet = require("helmet");
-const xss = require("xss-clean");
-const mongoSanitize = require("express-mongo-sanitize");
 const rateLimit = require("express-rate-limit");
 const connectDB = require("./src/config/db");
 
@@ -34,12 +32,31 @@ const app = express();
 
 // Security Middleware
 app.use(helmet());
-app.use(xss());
-// express-mongo-sanitize: Express 5 makes req.query a read-only getter,
-// so we manually sanitize only body & params to avoid the setter error.
+
+// Inline NoSQL-injection sanitizer
+const sanitizeObject = (obj) => {
+  if (!obj || typeof obj !== "object") return;
+  for (const key of Object.keys(obj)) {
+    if (/[$.]/.test(key)) { delete obj[key]; continue; }
+    if (typeof obj[key] === "object") sanitizeObject(obj[key]);
+  }
+};
+
+// Inline XSS sanitizer
+const escapeHtml = (str) =>
+  str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+const xssCleanObject = (obj) => {
+  if (!obj || typeof obj !== "object") return;
+  for (const key of Object.keys(obj)) {
+    if (typeof obj[key] === "string") { obj[key] = escapeHtml(obj[key]); }
+    else if (typeof obj[key] === "object") xssCleanObject(obj[key]);
+  }
+};
+
 app.use((req, res, next) => {
-  if (req.body) mongoSanitize.sanitize(req.body, { allowDots: false });
-  if (req.params) mongoSanitize.sanitize(req.params, { allowDots: false });
+  sanitizeObject(req.body);
+  sanitizeObject(req.params);
+  xssCleanObject(req.body);
   next();
 });
 
