@@ -15,12 +15,16 @@ exports.getDashboardStats = async (req, res) => {
     // If it's a service center, only get their stats
     if (req.user.role === 'service_center') {
       query.service_center_id = req.user.id;
+    } else if (req.user.role === 'retailer') {
+      query.retailer_id = req.user.id;
     }
 
     const totalInstallations = await InstallationRequest.countDocuments(query);
     const pendingJobs = await InstallationRequest.countDocuments({ ...query, status: { $ne: 'INSTALLATION_COMPLETED' } });
     const completedJobs = await InstallationRequest.countDocuments({ ...query, status: 'INSTALLATION_COMPLETED' });
-    const totalProducts = await Product.countDocuments();
+    const totalProducts = await Product.countDocuments(
+      req.user.role === 'retailer' ? { registered_by: req.user.id } : {}
+    );
     const totalCustomers = await Customer.countDocuments(
       req.user.role === 'retailer' ? { created_by: req.user.id } : {}
     );
