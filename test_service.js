@@ -117,6 +117,7 @@ async function testService() {
     step(4, "Registering Engineer...");
     const engineerRes = await request("/auth/register", "POST", {
       name: "Praveen Kumar",
+      phone: `98765${String(SEED + 1).slice(-5)}`,
       email: `praveen@gmail.com`,
       password: "pass123",
       role: "engineer",
@@ -172,7 +173,23 @@ async function testService() {
       retailerToken,
     );
     assertStatus(repairRes, 201, "Repair request created");
+    const serviceRequestId = repairRes.data.data.serviceRequest._id;
     pass(`Repair Ticket: ${repairRes.data.data.serviceRequest.ticket_number}`);
+
+    // ── 6.6 Assign Engineer to Service Request ─────────────────────────────
+    step(6.6, "Assigning Engineer to Service Request...");
+    const assignSrRes = await request(
+      `/service-requests/${serviceRequestId}/status`,
+      "PATCH",
+      {
+        engineer_id: engineerId,
+        status: "ENGINEER_ASSIGNED",
+        note: "Assigned for repair",
+      },
+      adminToken,
+    );
+    assertStatus(assignSrRes, 200, "Service request assignment");
+    pass(`SR Status → ${assignSrRes.data.data.serviceRequest.status}`);
 
     // ── 7. Assign Engineer (by Admin) ───────────────────────────────────────
     step(7, "Assigning Engineer to ticket...");
