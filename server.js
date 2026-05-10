@@ -2,7 +2,23 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const morgan = require("morgan");
+const helmet = require("helmet");
+const xss = require("xss-clean");
+const mongoSanitize = require("express-mongo-sanitize");
+const rateLimit = require("express-rate-limit");
 const connectDB = require("./src/config/db");
+
+// Environment Validation
+const requiredEnv = [
+  "JWT_SECRET",
+  "MONGO_URI",
+];
+for (const envVar of requiredEnv) {
+  if (!process.env[envVar]) {
+    console.error(`ERROR: Missing required environment variable: ${envVar}`);
+    process.exit(1);
+  }
+}
 
 // Import Routes
 const authRoutes = require("./src/routes/authRoutes");
@@ -15,6 +31,20 @@ const dashboardRoutes = require("./src/routes/dashboardRoutes");
 connectDB();
 
 const app = express();
+
+// Security Middleware
+app.use(helmet());
+app.use(xss());
+app.use(mongoSanitize());
+
+// Rate limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 mins
+  max: 100,
+  message: { success: false, message: "Too many requests, please try again later." }
+});
+app.use("/api/auth/login", limiter);
+app.use("/api/otp", limiter);
 
 // Middleware
 app.use(express.json());

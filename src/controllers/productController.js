@@ -56,11 +56,37 @@ exports.getProducts = async (req, res) => {
       query.customer_id = req.user.id;
     }
 
+    // Search
+    if (req.query.search) {
+      query.$or = [
+        { model_name: { $regex: req.query.search, $options: 'i' } },
+        { serial_number: { $regex: req.query.search, $options: 'i' } },
+        { barcode: { $regex: req.query.search, $options: 'i' } }
+      ];
+    }
+
+    // Pagination
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = parseInt(req.query.limit, 10) || 10;
+    const skip = (page - 1) * limit;
+
     const products = await Product.find(query)
         .populate('customer_id', 'name email phone')
-        .populate('registered_by', 'name role');
+        .populate('registered_by', 'name role')
+        .skip(skip)
+        .limit(limit)
+        .sort('-createdAt');
         
-    successResponse(res, 200, 'Products fetched successfully', { products });
+    const total = await Product.countDocuments(query);
+
+    successResponse(res, 200, 'Products fetched successfully', { 
+      products,
+      pagination: {
+        total,
+        page,
+        pages: Math.ceil(total / limit)
+      }
+    });
   } catch (error) {
     errorResponse(res, 500, 'Server Error', error.message);
   }

@@ -16,14 +16,40 @@ exports.getAllRequests = async (req, res) => {
       query.service_center_id = req.user.id;
     }
 
+    // Search
+    if (req.query.search) {
+      query.ticket_number = { $regex: req.query.search, $options: 'i' };
+    }
+    
+    // Status Filter
+    if (req.query.status) {
+      query.status = req.query.status;
+    }
+
+    // Pagination
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = parseInt(req.query.limit, 10) || 10;
+    const skip = (page - 1) * limit;
+
     const requests = await InstallationRequest.find(query)
       .populate('customer_id', 'name email phone')
       .populate('product_id', 'model_name serial_number barcode')
       .populate('engineer_id', 'name')
       .populate('service_center_id', 'name')
+      .skip(skip)
+      .limit(limit)
       .sort('-createdAt');
 
-    successResponse(res, 200, 'Requests fetched successfully', { requests });
+    const total = await InstallationRequest.countDocuments(query);
+
+    successResponse(res, 200, 'Requests fetched successfully', { 
+      requests,
+      pagination: {
+        total,
+        page,
+        pages: Math.ceil(total / limit)
+      }
+    });
   } catch (error) {
     errorResponse(res, 500, 'Server Error', error.message);
   }

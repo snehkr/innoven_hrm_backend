@@ -56,4 +56,9 @@ const installationRequestSchema = new mongoose.Schema({
   }
 }, { timestamps: true });
 
+// Compound indexes for optimized querying
+installationRequestSchema.index({ status: 1, engineer_id: 1 });
+installationRequestSchema.index({ retailer_id: 1, createdAt: -1 });
+installationRequestSchema.index({ service_center_id: 1, status: 1 });
+
 module.exports = mongoose.model('InstallationRequest', installationRequestSchema);
