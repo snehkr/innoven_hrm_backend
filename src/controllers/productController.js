@@ -7,7 +7,7 @@ const { generateBarcode, generateQRCode } = require('../utils/barcodeGenerator')
 // @access  Private (Admin, Retailer)
 exports.addProduct = async (req, res) => {
   try {
-    const { model_name, serial_number, warranty_period_months, customer_id } = req.body;
+    const { model_name, serial_number, warranty_period_months, customer_id, brand, invoice_number, purchase_date, customer_ref } = req.body;
 
     if (!model_name || !serial_number) {
         return errorResponse(res, 400, 'Please provide model name and serial number');
@@ -29,11 +29,15 @@ exports.addProduct = async (req, res) => {
     const product = await Product.create({
       model_name,
       serial_number,
+      brand,
+      invoice_number,
+      purchase_date,
       barcode: barcodeText,
       barcode_image_url,
       qr_code_url,
       warranty_period_months: warranty_period_months || 12,
       customer_id: customer_id || null,
+      customer_ref: customer_ref || null,
       registered_by: req.user.id
     });
 
@@ -53,7 +57,9 @@ exports.getProducts = async (req, res) => {
     if (req.user.role === 'retailer') {
       query.registered_by = req.user.id;
     } else if (req.user.role === 'customer') {
-      query.customer_id = req.user.id;
+      // Keep backward compatibility, also check customer_ref if needed
+      query.$or = [{ customer_id: req.user.id }];
+      // If customer_ref has ID, we might check that later, but customer doesn't login yet using Customer model.
     }
 
     // Search
@@ -72,6 +78,7 @@ exports.getProducts = async (req, res) => {
 
     const products = await Product.find(query)
         .populate('customer_id', 'name email phone')
+        .populate('customer_ref', 'name email phone')
         .populate('registered_by', 'name role')
         .skip(skip)
         .limit(limit)

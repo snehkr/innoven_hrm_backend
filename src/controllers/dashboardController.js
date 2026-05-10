@@ -1,6 +1,8 @@
 const InstallationRequest = require('../models/InstallationRequest');
 const User = require('../models/User');
 const Product = require('../models/Product');
+const Customer = require('../models/Customer');
+const ServiceRequest = require('../models/ServiceRequest');
 const { successResponse, errorResponse } = require('../utils/responseHandler');
 
 // @desc    Get Dashboard Analytics
@@ -19,6 +21,12 @@ exports.getDashboardStats = async (req, res) => {
     const pendingJobs = await InstallationRequest.countDocuments({ ...query, status: { $ne: 'INSTALLATION_COMPLETED' } });
     const completedJobs = await InstallationRequest.countDocuments({ ...query, status: 'INSTALLATION_COMPLETED' });
     const totalProducts = await Product.countDocuments();
+    const totalCustomers = await Customer.countDocuments(
+      req.user.role === 'retailer' ? { created_by: req.user.id } : {}
+    );
+    const repairRequests = await ServiceRequest.countDocuments(
+      req.user.role === 'retailer' ? { retailer_id: req.user.id, request_type: 'repair' } : { request_type: 'repair' }
+    );
     
     let activeEngineersCount = 0;
     if (req.user.role === 'super_admin') {
@@ -61,6 +69,8 @@ exports.getDashboardStats = async (req, res) => {
       pendingJobs,
       completedJobs,
       totalProducts,
+      totalCustomers,
+      repairRequests,
       activeEngineersCount,
       charts: {
         statusBreakdown,

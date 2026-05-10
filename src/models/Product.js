@@ -34,6 +34,23 @@ const productSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
+  brand: {
+    type: String,
+    trim: true
+  },
+  invoice_number: {
+    type: String,
+    trim: true
+  },
+  purchase_date: {
+    type: Date
+  },
+  // Reference to Customer model (new workflow)
+  customer_ref: {
+    type: mongoose.Schema.ObjectId,
+    ref: 'Customer',
+    default: null
+  },
   is_active: {
     type: Boolean,
     default: true

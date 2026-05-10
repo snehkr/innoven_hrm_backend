@@ -24,6 +24,8 @@ const productRoutes = require("./src/routes/productRoutes");
 const installationRoutes = require("./src/routes/installationRoutes");
 const otpRoutes = require("./src/routes/otpRoutes");
 const dashboardRoutes = require("./src/routes/dashboardRoutes");
+const customerRoutes = require("./src/routes/customerRoutes");
+const serviceRequestRoutes = require("./src/routes/serviceRequestRoutes");
 
 // Connect Database
 connectDB();
@@ -97,6 +99,8 @@ app.use("/api/products", productRoutes);
 app.use("/api/installations", installationRoutes);
 app.use("/api/otp", otpRoutes);
 app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/customers", customerRoutes);
+app.use("/api/service-requests", serviceRequestRoutes);
 
 // Base Route
 app.get("/", (req, res) => {
