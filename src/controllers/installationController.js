@@ -112,14 +112,15 @@ exports.assignServiceCenter = async (req, res) => {
 // @access  Private (Service Center)
 exports.assignEngineer = async (req, res) => {
   try {
-    const { engineer_id } = req.body;
+    const { engineer_id, assigned_engineer } = req.body;
+    const engineerToAssign = engineer_id || assigned_engineer;
 
     let request = await InstallationRequest.findById(req.params.id);
     if (!request) {
       return errorResponse(res, 404, 'Installation request not found');
     }
 
-    request.engineer_id = engineer_id;
+    request.engineer_id = engineerToAssign;
     request.status = 'ENGINEER_ASSIGNED';
     request.timeline.push({ status: 'ENGINEER_ASSIGNED', note: 'Engineer assigned by Service Center' });
     
