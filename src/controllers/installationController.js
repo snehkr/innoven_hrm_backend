@@ -2,6 +2,7 @@ const InstallationRequest = require('../models/InstallationRequest');
 const Product = require('../models/Product');
 const { successResponse, errorResponse } = require('../utils/responseHandler');
 const imagekit = require('../utils/imagekit');
+const { toFile } = require('@imagekit/nodejs');
 
 // @desc    Get all installation requests
 // @route   GET /api/installations
@@ -138,8 +139,8 @@ exports.completeInstallation = async (req, res) => {
       return errorResponse(res, 400, 'Please upload an installation proof image');
     }
 
-    const uploadResponse = await imagekit.upload({
-      file: req.file.buffer,
+    const uploadResponse = await imagekit.files.upload({
+      file: await toFile(req.file.buffer, req.file.originalname),
       fileName: req.file.originalname,
       folder: '/installations'
     });

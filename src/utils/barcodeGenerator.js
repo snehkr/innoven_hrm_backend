@@ -1,6 +1,7 @@
 const bwipjs = require('bwip-js');
 const qrcode = require('qrcode');
 const imagekit = require('./imagekit');
+const { toFile } = require('@imagekit/nodejs');
 
 const generateBarcode = async (text, type = 'code128') => {
   return new Promise((resolve, reject) => {
@@ -17,8 +18,8 @@ const generateBarcode = async (text, type = 'code128') => {
       } else {
         try {
           const filename = `${text}.png`;
-          const uploadResponse = await imagekit.upload({
-            file: png, // buffer
+          const uploadResponse = await imagekit.files.upload({
+            file: await toFile(png, filename), // buffer
             fileName: filename,
             folder: '/barcodes'
           });
@@ -36,8 +37,8 @@ const generateQRCode = async (text) => {
     const filename = `${text}.png`;
     const buffer = await qrcode.toBuffer(text);
     
-    const uploadResponse = await imagekit.upload({
-      file: buffer,
+    const uploadResponse = await imagekit.files.upload({
+      file: await toFile(buffer, filename),
       fileName: filename,
       folder: '/qrcodes'
     });
