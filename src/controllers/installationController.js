@@ -2,7 +2,6 @@ const InstallationRequest = require('../models/InstallationRequest');
 const Product = require('../models/Product');
 const { successResponse, errorResponse } = require('../utils/responseHandler');
 const imagekit = require('../utils/imagekit');
-const { toFile } = require('@imagekit/nodejs');
 
 // @desc    Get all installation requests
 // @route   GET /api/installations
@@ -157,17 +156,24 @@ exports.completeInstallation = async (req, res) => {
       return errorResponse(res, 404, 'Installation request not found');
     }
 
-    if (request.status !== 'OTP_VERIFIED') {
-      return errorResponse(res, 400, 'OTP must be verified before completing installation');
+    // Allow completion from OTP_VERIFIED (normal flow) or OTP_SENT (edge cases)
+    const allowedStatuses = ['OTP_VERIFIED', 'OTP_SENT'];
+    if (!allowedStatuses.includes(request.status)) {
+      return errorResponse(res, 400, `Cannot complete: ticket is in '${request.status}' status. OTP must be verified first.`);
     }
 
     if (!req.file) {
       return errorResponse(res, 400, 'Please upload an installation proof image');
     }
 
+    // Convert buffer to base64 for ImageKit SDK v7
+    const base64File = req.file.buffer.toString('base64');
+    const mimeType = req.file.mimetype; // e.g. image/jpeg
+    const dataUri = `data:${mimeType};base64,${base64File}`;
+
     const uploadResponse = await imagekit.files.upload({
-      file: await toFile(req.file.buffer, req.file.originalname),
-      fileName: req.file.originalname,
+      file: dataUri,
+      fileName: `proof_${req.params.id}_${Date.now()}.jpg`,
       folder: '/installations'
     });
 
