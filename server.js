@@ -35,7 +35,13 @@ const app = express();
 // Security Middleware
 app.use(helmet());
 app.use(xss());
-app.use(mongoSanitize());
+// express-mongo-sanitize: Express 5 makes req.query a read-only getter,
+// so we manually sanitize only body & params to avoid the setter error.
+app.use((req, res, next) => {
+  if (req.body) mongoSanitize.sanitize(req.body, { allowDots: false });
+  if (req.params) mongoSanitize.sanitize(req.params, { allowDots: false });
+  next();
+});
 
 // Rate limiting
 const limiter = rateLimit({
