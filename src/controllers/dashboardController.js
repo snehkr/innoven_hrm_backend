@@ -12,25 +12,43 @@ exports.getDashboardStats = async (req, res) => {
   try {
     let query = {};
     
-    // If it's a service center, only get their stats
+    // Role-based query filtering
     if (req.user.role === 'service_center') {
       query.service_center_id = req.user.id;
     } else if (req.user.role === 'retailer') {
       query.retailer_id = req.user.id;
+    } else if (req.user.role === 'customer') {
+      query.customer_id = req.user.id;
     }
 
     const totalInstallations = await InstallationRequest.countDocuments(query);
     const pendingJobs = await InstallationRequest.countDocuments({ ...query, status: { $ne: 'INSTALLATION_COMPLETED' } });
     const completedJobs = await InstallationRequest.countDocuments({ ...query, status: 'INSTALLATION_COMPLETED' });
     const totalProducts = await Product.countDocuments(
-      req.user.role === 'retailer' ? { registered_by: req.user.id } : {}
+      req.user.role === 'retailer' ? { registered_by: req.user.id } : 
+      req.user.role === 'customer' ? { customer_id: req.user.id } : {}
     );
     const totalCustomers = await Customer.countDocuments(
       req.user.role === 'retailer' ? { created_by: req.user.id } : {}
     );
-    const repairRequests = await ServiceRequest.countDocuments(
-      req.user.role === 'retailer' ? { retailer_id: req.user.id, request_type: 'repair' } : { request_type: 'repair' }
-    );
+
+    // For ServiceRequests (Repair), we need to handle the customer_id ref correctly
+    let repairQuery = { request_type: 'repair' };
+    if (req.user.role === 'retailer') {
+      repairQuery.retailer_id = req.user.id;
+    } else if (req.user.role === 'customer') {
+      // Find the customer record matching this user
+      const customerRecord = await Customer.findOne({ 
+        $or: [{ email: req.user.email }, { phone: req.user.phone }] 
+      });
+      if (customerRecord) {
+        repairQuery.customer_id = customerRecord._id;
+      } else {
+        repairQuery.customer_id = null; // No records found
+      }
+    }
+
+    const repairRequests = await ServiceRequest.countDocuments(repairQuery);
     
     let activeEngineersCount = 0;
     if (req.user.role === 'super_admin') {
