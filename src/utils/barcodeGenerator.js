@@ -1,7 +1,6 @@
 const bwipjs = require('bwip-js');
 const qrcode = require('qrcode');
-const path = require('path');
-const fs = require('fs');
+const imagekit = require('./imagekit');
 
 const generateBarcode = async (text, type = 'code128') => {
   return new Promise((resolve, reject) => {
@@ -12,19 +11,21 @@ const generateBarcode = async (text, type = 'code128') => {
       height: 10,       // Bar height, in millimeters
       includetext: true, // Show human-readable text
       textxalign: 'center', // Always good to set this
-    }, function (err, png) {
+      }, async function (err, png) {
       if (err) {
         reject(err);
       } else {
-        // Save file locally in src/uploads/barcodes
-        const dir = path.join(__dirname, '../uploads/barcodes');
-        if (!fs.existsSync(dir)){
-            fs.mkdirSync(dir, { recursive: true });
+        try {
+          const filename = `${text}.png`;
+          const uploadResponse = await imagekit.upload({
+            file: png, // buffer
+            fileName: filename,
+            folder: '/barcodes'
+          });
+          resolve(uploadResponse.url);
+        } catch (uploadErr) {
+          reject(uploadErr);
         }
-        const filename = `${text}.png`;
-        const filepath = path.join(dir, filename);
-        fs.writeFileSync(filepath, png);
-        resolve(`/uploads/barcodes/${filename}`);
       }
     });
   });
@@ -32,14 +33,15 @@ const generateBarcode = async (text, type = 'code128') => {
 
 const generateQRCode = async (text) => {
   try {
-    const dir = path.join(__dirname, '../uploads/qrcodes');
-    if (!fs.existsSync(dir)){
-        fs.mkdirSync(dir, { recursive: true });
-    }
     const filename = `${text}.png`;
-    const filepath = path.join(dir, filename);
-    await qrcode.toFile(filepath, text);
-    return `/uploads/qrcodes/${filename}`;
+    const buffer = await qrcode.toBuffer(text);
+    
+    const uploadResponse = await imagekit.upload({
+      file: buffer,
+      fileName: filename,
+      folder: '/qrcodes'
+    });
+    return uploadResponse.url;
   } catch (err) {
     throw err;
   }

@@ -1,6 +1,7 @@
 const InstallationRequest = require('../models/InstallationRequest');
 const Product = require('../models/Product');
 const { successResponse, errorResponse } = require('../utils/responseHandler');
+const imagekit = require('../utils/imagekit');
 
 // @desc    Get all installation requests
 // @route   GET /api/installations
@@ -137,7 +138,13 @@ exports.completeInstallation = async (req, res) => {
       return errorResponse(res, 400, 'Please upload an installation proof image');
     }
 
-    request.installation_proof_url = `/uploads/installations/${req.file.filename}`;
+    const uploadResponse = await imagekit.upload({
+      file: req.file.buffer,
+      fileName: req.file.originalname,
+      folder: '/installations'
+    });
+
+    request.installation_proof_url = uploadResponse.url;
     request.status = 'INSTALLATION_COMPLETED';
     request.timeline.push({ status: 'INSTALLATION_COMPLETED', note: 'Installation completed by engineer' });
     
