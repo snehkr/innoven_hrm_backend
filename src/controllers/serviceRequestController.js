@@ -22,7 +22,7 @@ exports.createServiceRequest = async (req, res) => {
     if (!customer) return errorResponse(res, 404, 'Customer not found');
     if (!product) return errorResponse(res, 404, 'Product not found');
 
-    const ticket_number = `SR-${Math.floor(100000 + Math.random() * 900000)}`;
+    const ticket_number = `TKT-${Math.floor(100000 + Math.random() * 900000)}`;
 
     const serviceRequest = await ServiceRequest.create({
       ticket_number,
@@ -93,14 +93,19 @@ exports.getServiceRequests = async (req, res) => {
 // @access  Private (Admin, Service Center)
 exports.updateStatus = async (req, res) => {
   try {
-    const { status, note, assigned_engineer, assigned_service_center } = req.body;
+    const { status, note, assigned_engineer, engineer_id, assigned_service_center, service_center_id } = req.body;
 
     const sr = await ServiceRequest.findById(req.params.id);
     if (!sr) return errorResponse(res, 404, 'Service request not found');
 
     if (status) sr.status = status;
-    if (assigned_engineer) sr.assigned_engineer = assigned_engineer;
-    if (assigned_service_center) sr.assigned_service_center = assigned_service_center;
+    
+    // Support both naming conventions for compatibility
+    const engineerToAssign = assigned_engineer || engineer_id;
+    const scToAssign = assigned_service_center || service_center_id;
+
+    if (engineerToAssign) sr.assigned_engineer = engineerToAssign;
+    if (scToAssign) sr.assigned_service_center = scToAssign;
 
     sr.timeline.push({ status: status || sr.status, note: note || 'Status updated' });
     await sr.save();
