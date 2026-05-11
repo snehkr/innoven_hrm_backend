@@ -1,4 +1,5 @@
 const Customer = require('../models/Customer');
+const User = require('../models/User');
 const { successResponse, errorResponse } = require('../utils/responseHandler');
 
 // @desc    Create customer
@@ -25,12 +26,32 @@ exports.createCustomer = async (req, res) => {
       return errorResponse(res, 400, 'A customer with this phone number or email already exists in your account');
     }
 
+    // 1. Handle User (Login Account)
+    let user = await User.findOne({ email });
+    if (!user) {
+      user = await User.create({
+        name,
+        email,
+        phone,
+        password: 'pass123', // Default password
+        role: 'customer'
+      });
+    }
+
+    // 2. Create Customer Profile linked to user_id
     const customer = await Customer.create({
       name, phone, alternate_phone, email, address, city, state, pincode,
+      user_id: user._id,
       created_by: req.user.id
     });
 
-    successResponse(res, 201, 'Customer created successfully', { customer });
+    successResponse(res, 201, 'Customer created successfully', { 
+      customer,
+      credentials: {
+        email,
+        password: 'pass123'
+      }
+    });
   } catch (error) {
     errorResponse(res, 500, 'Server Error', error.message);
   }
