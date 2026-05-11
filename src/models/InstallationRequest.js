@@ -13,7 +13,7 @@ const installationRequestSchema = new mongoose.Schema({
   },
   customer_id: {
     type: mongoose.Schema.ObjectId,
-    ref: 'User',
+    ref: 'Customer',
     required: true
   },
   product_id: {

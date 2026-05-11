@@ -66,13 +66,28 @@ exports.createRequest = async (req, res) => {
       return errorResponse(res, 404, 'Product not found');
     }
 
+    // Ensure we have the Customer profile ID, not the User ID
+    const Customer = require('../models/Customer');
+    let customer = await Customer.findById(customer_id);
+    let finalCustomerId = customer_id;
+
+    if (!customer) {
+      // Check if the provided ID is a User ID
+      customer = await Customer.findOne({ user_id: customer_id });
+      if (customer) {
+        finalCustomerId = customer._id;
+      } else {
+        return errorResponse(res, 404, 'Customer profile not found. Please ensure the customer is registered.');
+      }
+    }
+
     // Generate Ticket Number
     const ticket_number = `TKT-${Math.floor(100000 + Math.random() * 900000)}`;
 
     const request = await InstallationRequest.create({
       ticket_number,
       retailer_id: req.user.id,
-      customer_id,
+      customer_id: finalCustomerId,
       product_id,
       timeline: [{ status: 'PENDING', note: 'Request created by retailer' }]
     });
