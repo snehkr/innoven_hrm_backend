@@ -67,6 +67,14 @@ exports.getProducts = async (req, res) => {
       ];
     }
 
+    // Allow admins/retailers to filter by customer via query params
+    if (req.query.customer_id) {
+      query.customer_id = req.query.customer_id;
+    }
+    if (req.query.customer_ref) {
+      query.customer_ref = req.query.customer_ref;
+    }
+
     // Search
     if (req.query.search) {
       query.$or = [
