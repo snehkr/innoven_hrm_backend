@@ -57,9 +57,14 @@ exports.getProducts = async (req, res) => {
     if (req.user.role === 'retailer') {
       query.registered_by = req.user.id;
     } else if (req.user.role === 'customer') {
-      // Keep backward compatibility, also check customer_ref if needed
-      query.$or = [{ customer_id: req.user.id }];
-      // If customer_ref has ID, we might check that later, but customer doesn't login yet using Customer model.
+      const Customer = require('../models/Customer');
+      const customerProfile = await Customer.findOne({ user_id: req.user.id });
+      
+      // Match either the old User-based customer_id or the new Customer-profile-based customer_ref
+      query.$or = [
+        { customer_id: req.user.id },
+        { customer_ref: customerProfile ? customerProfile._id : null }
+      ];
     }
 
     // Search

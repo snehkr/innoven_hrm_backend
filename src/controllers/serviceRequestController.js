@@ -148,6 +148,14 @@ exports.getServiceRequests = async (req, res) => {
       query.retailer_id = req.user.id;
     } else if (req.user.role === 'service_center') {
       query.assigned_service_center = req.user.id;
+    } else if (req.user.role === 'customer') {
+      const Customer = require('../models/Customer');
+      const customerProfile = await Customer.findOne({ user_id: req.user.id });
+      if (customerProfile) {
+        query.customer_id = customerProfile._id;
+      } else {
+        query.customer_id = new require('mongoose').Types.ObjectId();
+      }
     } else if (req.user.role === 'engineer') {
       query.assigned_engineer = req.user.id;
     }

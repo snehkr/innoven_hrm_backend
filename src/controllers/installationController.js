@@ -13,6 +13,15 @@ exports.getAllRequests = async (req, res) => {
       query.retailer_id = req.user.id;
     } else if (req.user.role === 'service_center') {
       query.service_center_id = req.user.id;
+    } else if (req.user.role === 'customer') {
+      const Customer = require('../models/Customer');
+      const customerProfile = await Customer.findOne({ user_id: req.user.id });
+      if (customerProfile) {
+        query.customer_id = customerProfile._id;
+      } else {
+        // If no profile, they should see nothing
+        query.customer_id = new require('mongoose').Types.ObjectId();
+      }
     }
 
     // Search
