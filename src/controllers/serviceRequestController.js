@@ -103,7 +103,14 @@ exports.onboardAndCreateRequest = async (req, res) => {
 // @access  Private (Retailer, Admin)
 exports.createServiceRequest = async (req, res) => {
   try {
-    const { customer_id, product_id, request_type, issue_description, issue_type, urgency } = req.body;
+    let { customer_id, product_id, request_type, issue_description, issue_type, urgency } = req.body;
+
+    // If customer is creating the request, they don't provide customer_id in body
+    if (req.user.role === 'customer') {
+      const customerProfile = await Customer.findOne({ user_id: req.user.id });
+      if (!customerProfile) return errorResponse(res, 404, 'Customer profile not found');
+      customer_id = customerProfile._id;
+    }
 
     if (!customer_id || !product_id || !request_type) {
       return errorResponse(res, 400, 'customer_id, product_id and request_type are required');
@@ -119,16 +126,19 @@ exports.createServiceRequest = async (req, res) => {
 
     const ticket_number = `TKT-${Math.floor(100000 + Math.random() * 900000)}`;
 
+    // Determine retailer_id (if customer, use product's registered_by)
+    const finalRetailerId = req.user.role === 'customer' ? product.registered_by : req.user.id;
+
     const serviceRequest = await ServiceRequest.create({
       ticket_number,
       request_type,
       customer_id,
       product_id,
-      retailer_id: req.user.id,
+      retailer_id: finalRetailerId,
       issue_description,
       issue_type,
       urgency: urgency || 'medium',
-      timeline: [{ status: 'PENDING', note: `${request_type} request created by retailer` }]
+      timeline: [{ status: 'PENDING', note: `${request_type} request created by ${req.user.role}` }]
     });
 
     successResponse(res, 201, 'Service request created successfully', { serviceRequest });

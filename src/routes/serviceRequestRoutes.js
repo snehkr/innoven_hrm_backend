@@ -6,7 +6,7 @@ const { authorize } = require('../middleware/roleMiddleware');
 const router = express.Router();
 router.use(protect);
 
-router.post('/', authorize('super_admin', 'retailer'), createServiceRequest);
+router.post('/', authorize('super_admin', 'retailer', 'customer'), createServiceRequest);
 router.get('/', getServiceRequests);
 router.post('/onboard-request', authorize('super_admin', 'retailer'), onboardAndCreateRequest);
 router.patch('/:id/status', authorize('super_admin', 'service_center', 'engineer'), updateStatus);
