@@ -1,3 +1,4 @@
+const express = require('express');
 const { createServiceRequest, getServiceRequests, updateStatus, onboardAndCreateRequest } = require('../controllers/serviceRequestController');
 const { protect } = require('../middleware/authMiddleware');
 const { authorize } = require('../middleware/roleMiddleware');
