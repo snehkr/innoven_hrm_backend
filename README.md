@@ -1,123 +1,99 @@
-# 📺 Service Lifecycle Management System
+# 🛠️ Innoven Support - Backend
 
-A full-stack, multi-role platform to manage the complete lifecycle of TV installations — from retail sale to warranty activation.
+A robust, multi-role backend engine designed to manage the entire lifecycle of service and installation requests — from verified customer onboarding to engineer task completion and warranty activation.
 
 ---
 
 ## 🏗️ Tech Stack
 
-| Layer | Technology |
-|-------|-----------|
-| Backend | Node.js, Express.js, MongoDB, JWT |
-| Admin Panel | React.js, Vite, Tailwind CSS, Recharts |
-| Mobile App | Flutter, Provider, go_router |
-| Email / OTP | Nodemailer (Gmail SMTP) |
-| File Storage | ImageKit |
-| Security | Helmet, express-rate-limit, bcryptjs |
+| Layer            | Technology                                             |
+| ---------------- | ------------------------------------------------------ |
+| **Core**         | Node.js, Express.js                                    |
+| **Database**     | MongoDB with Mongoose ODM                              |
+| **Security**     | JWT (JSON Web Tokens), Bcrypt, Helmet, Rate Limiting   |
+| **Integrations** | Nodemailer (OTP/Email), ImageKit (Photo Proof Storage) |
+| **Environment**  | Dotenv for secure configuration                        |
 
 ---
 
-## 🔄 Workflow
+## 🚀 Key Features
 
-```
-Retailer → Register Product (Barcode Generated)
-       ↓
-Create Installation Request
-       ↓
-Super Admin assigns Service Center
-       ↓
-Service Center assigns Engineer
-       ↓
-Engineer visits → Scans Barcode → OTP Sent to Customer
-       ↓
-Engineer verifies OTP → Uploads Photo Proof
-       ↓
-Installation COMPLETED → Warranty Activated
-```
+### 1. 🛡️ Advanced Authentication
 
----
+- Multi-role support: `super_admin`, `service_center`, `engineer`, `retailer`, `customer`.
+- Secure JWT-based session management.
+- Protected routes with granular role-based access control (RBAC).
 
-## 🚀 Local Setup
+### 2. 📋 Integrated Customer Onboarding
 
-### Backend
+- **Verified Registration:** Seamlessly register a customer, their product, and a service ticket in a single atomic workflow.
+- **Auto-Account Creation:** Automatically creates a mobile-ready `User` account for new customers with a default password (`pass123`).
+- **OTP Pre-Verification:** Ensures customer email validity via OTP before any database records are created.
 
-```bash
-cd innoven_hrm_backend
-npm install
-cp example.env .env
-npm run dev
-```
+### 3. 🔧 Service & Installation Management
 
-### Admin Panel
+- **Universal Tracking:** Unified handling for both Installations and Repair/Service requests.
+- **Dynamic Timeline:** Real-time event logging for every ticket (Assignment -> Visiting -> OTP -> Completion).
+- **Photo Evidence:** Securely stores and serves proof of service images via ImageKit.
 
-```bash
-cd innoven_hrm_admin_panel
-npm install
-npm run dev
-```
+### 4. 📊 Admin & Analytics
 
-### Flutter App
-
-```bash
-cd hrm_mobile_app
-flutter pub get
-flutter run
-```
+- Paginated and searchable lists for Products, Customers, and Tickets.
+- Comprehensive dashboard analytics for tracking performance and ticket volume.
 
 ---
 
-## 🔐 Environment Variables (Backend)
+## 📡 Essential API Endpoints
 
-```env
-PORT=5000
-NODE_ENV=development
-MONGO_URI=your_mongodb_connection_string
-JWT_SECRET=your_super_secret_jwt_key
-JWT_EXPIRES_IN=7d
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_EMAIL=your_gmail@gmail.com
-SMTP_PASS=your_app_password
-IMAGEKIT_PUBLIC_KEY=your_public_key
-IMAGEKIT_PRIVATE_KEY=your_private_key
-IMAGEKIT_URL_ENDPOINT=https://ik.imagekit.io/your_id
-```
+### 🔐 Authentication & Users
 
----
+- `POST /api/auth/login` - Secure login for all roles.
+- `GET /api/auth/users` - Manage system users (Admin only).
 
-## 👥 Roles
+### 🤝 Onboarding & Service Requests
 
-| Role | Access |
-|------|--------|
-| super_admin | Full system control |
-| service_center | Assign engineers, view tickets |
-| engineer | Mobile app, scan barcodes, verify OTP, upload proof |
-| retailer | Register products and customers, create install requests |
-| customer | View installations |
+- `POST /api/otp/onboarding/send` - Send verification OTP to a new customer's email.
+- `POST /api/otp/onboarding/verify` - Verify OTP to enable the onboarding flow.
+- `POST /api/service-requests/onboard-request` - **Primary Onboarding:** Creates User, Customer, Product, and Ticket in one go.
+- `GET /api/service-requests` - List all service/repair requests (filtered & paginated).
+
+### 📺 Installations
+
+- `GET /api/installations` - List all installation requests.
+- `POST /api/installations` - Standard installation request creation.
+- `PATCH /api/installations/:id/assign-engineer` - Assign a specific engineer to a task.
+
+### 📱 Engineer Operations
+
+- `POST /api/otp/send` - Send verification OTP during site visit.
+- `POST /api/otp/verify` - Verify customer OTP on-site.
+- `PATCH /api/installations/:id/complete` - Upload proof and finalize the ticket.
 
 ---
 
-## 📡 Key API Endpoints
+## 🛠️ Maintenance & Utilities
 
-| Method | Route | Description |
-|--------|-------|-------------|
-| POST | /api/auth/register | Register user |
-| POST | /api/auth/login | Login |
-| GET | /api/auth/users?role=engineer | List engineers |
-| GET | /api/products | List products (paginated) |
-| POST | /api/products | Add product + generate barcode |
-| GET | /api/installations | List tickets (paginated + filtered) |
-| POST | /api/installations | Create install request |
-| PATCH | /api/installations/:id/assign-engineer | Assign engineer |
-| POST | /api/otp/send | Send OTP to customer |
-| POST | /api/otp/verify | Verify OTP |
-| POST | /api/installations/:id/complete | Upload proof + complete |
-| GET | /api/dashboard | Analytics and charts |
+### Data Migration
+
+If historical records show `null` for customer details due to the migration from User IDs to Customer Profile IDs, run the following utility (Super Admin only):
+
+- `GET /api/service-requests/migrate` - Synchronizes historical ticket data with Customer profiles.
 
 ---
 
-## 🚢 Deployment
+## 🚢 Local Development
 
-- Backend: Deploy to Render or Railway. Set all env vars in the dashboard.
-- Admin Panel: Deploy to Vercel. The vercel.json handles SPA routing.
-- Mobile: Run flutter build apk --release for Android APK.
+1. **Install Dependencies:**
+   ```bash
+   npm install
+   ```
+2. **Environment Configuration:**
+   Create a `.env` file based on `example.env` with your MongoDB URI, JWT Secret, and SMTP credentials.
+3. **Run Server:**
+   ```bash
+   npm run dev
+   ```
+
+---
+
+&copy; 2026 Innoven Support System. All Rights Reserved.
