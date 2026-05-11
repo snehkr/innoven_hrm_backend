@@ -104,7 +104,7 @@ app.use("/api/service-requests", serviceRequestRoutes);
 
 // Base Route
 app.get("/", (req, res) => {
-  res.json({ message: "Welcome to Service Lifecycle Management API" });
+  res.json({ message: "Welcome to Innoven Support Admin Panel" });
 });
 
 // Global Error Handler
