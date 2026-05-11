@@ -3,8 +3,7 @@ const mongoose = require('mongoose');
 const otpLogSchema = new mongoose.Schema({
   request_id: {
     type: mongoose.Schema.ObjectId,
-    ref: 'InstallationRequest',
-    required: true
+    ref: 'ServiceRequest'
   },
   email: {
     type: String,

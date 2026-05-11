@@ -42,6 +42,11 @@ const customerSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
+  user_id: {
+    type: mongoose.Schema.ObjectId,
+    ref: 'User',
+    required: true
+  },
   created_by: {
     type: mongoose.Schema.ObjectId,
     ref: 'User',

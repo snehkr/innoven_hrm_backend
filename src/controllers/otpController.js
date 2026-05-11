@@ -139,3 +139,68 @@ exports.verifyOTP = async (req, res) => {
     errorResponse(res, 500, 'Server Error', error.message);
   }
 };
+
+// @desc    Send OTP for customer onboarding
+// @route   POST /api/otp/onboarding/send
+// @access  Private (Retailer/Admin)
+exports.sendOnboardingOTP = async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) return errorResponse(res, 400, 'Email is required');
+
+    // Generate 4 digit OTP
+    const otp = Math.floor(1000 + Math.random() * 9000).toString();
+    const salt = await bcrypt.genSalt(10);
+    const hashedOtp = await bcrypt.hash(otp, salt);
+    const expires_at = new Date(Date.now() + 10 * 60000); // 10 minutes
+
+    await OTPLog.create({ email, otp_code: hashedOtp, expires_at });
+
+    await sendEmail({
+      email,
+      subject: 'Email Verification OTP - Innoven Support',
+      message: `Your verification OTP is: ${otp}`,
+      html: `
+        <div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+          <h2 style="color: #2563eb;">Email Verification</h2>
+          <p>Please use the following OTP to verify your email and continue with the service request:</p>
+          <div style="font-size: 24px; font-weight: bold; padding: 10px; background: #f3f4f6; text-align: center; border-radius: 5px; letter-spacing: 4px;">
+            ${otp}
+          </div>
+          <p style="color: #6b7280; font-size: 12px; margin-top: 20px;">This OTP is valid for 10 minutes.</p>
+        </div>
+      `
+    });
+
+    successResponse(res, 200, 'Verification OTP sent to email');
+  } catch (error) {
+    errorResponse(res, 500, 'Server Error', error.message);
+  }
+};
+
+// @desc    Verify OTP for onboarding
+// @route   POST /api/otp/onboarding/verify
+// @access  Private (Retailer/Admin)
+exports.verifyOnboardingOTP = async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+    if (!email || !otp) return errorResponse(res, 400, 'Email and OTP are required');
+
+    const otpLog = await OTPLog.findOne({ email, is_used: false }).sort({ createdAt: -1 });
+
+    if (!otpLog || new Date() > otpLog.expires_at) {
+      return errorResponse(res, 400, 'OTP expired or not found');
+    }
+
+    const isMatch = await bcrypt.compare(otp.toString(), otpLog.otp_code);
+    if (!isMatch) return errorResponse(res, 400, 'Invalid OTP');
+
+    otpLog.is_used = true;
+    await otpLog.save();
+
+    successResponse(res, 200, 'Email verified successfully');
+  } catch (error) {
+    errorResponse(res, 500, 'Server Error', error.message);
+  }
+};
+

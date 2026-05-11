@@ -1,7 +1,102 @@
 const ServiceRequest = require('../models/ServiceRequest');
 const Customer = require('../models/Customer');
 const Product = require('../models/Product');
+const User = require('../models/User');
+const OTPLog = require('../models/OTPLog');
 const { successResponse, errorResponse } = require('../utils/responseHandler');
+
+// @desc    Onboard customer and create service request
+// @route   POST /api/service-requests/onboard-request
+// @access  Private (Retailer, Admin)
+exports.onboardAndCreateRequest = async (req, res) => {
+  try {
+    const { 
+      customer_info, // name, phone, email, address, city, state, pincode
+      product_info,  // model_name, serial_number, brand, purchase_date
+      request_info   // request_type, issue_description, issue_type, urgency
+    } = req.body;
+
+    if (!customer_info?.email || !product_info?.serial_number) {
+      return errorResponse(res, 400, 'Customer email and product serial number are required');
+    }
+
+    // 1. Verify that email was recently OTP-verified
+    const otpVerified = await OTPLog.findOne({ 
+      email: customer_info.email, 
+      is_used: true 
+    }).sort({ updatedAt: -1 });
+
+    if (!otpVerified || (Date.now() - new Date(otpVerified.updatedAt).getTime()) > 30 * 60000) {
+      return errorResponse(res, 400, 'Email verification expired or not found. Please verify OTP first.');
+    }
+
+    // 2. Handle User (Login Account)
+    let user = await User.findOne({ email: customer_info.email });
+    if (!user) {
+      user = await User.create({
+        name: customer_info.name,
+        email: customer_info.email,
+        phone: customer_info.phone,
+        password: 'pass123', // Default password
+        role: 'customer'
+      });
+    }
+
+    // 3. Handle Customer Profile
+    let customer = await Customer.findOne({ email: customer_info.email });
+    if (!customer) {
+      customer = await Customer.create({
+        ...customer_info,
+        user_id: user._id,
+        created_by: req.user.id
+      });
+    } else {
+      // Ensure user_id is linked if it wasn't
+      if (!customer.user_id) {
+        customer.user_id = user._id;
+        await customer.save();
+      }
+    }
+
+    // 4. Handle Product
+    let product = await Product.findOne({ serial_number: product_info.serial_number });
+    if (!product) {
+      product = await Product.create({
+        ...product_info,
+        customer_id: user._id,
+        customer_ref: customer._id,
+        registered_by: req.user.id
+      });
+    } else {
+      // Update product owner if needed
+      product.customer_id = user._id;
+      product.customer_ref = customer._id;
+      await product.save();
+    }
+
+    // 5. Create Service Request
+    const ticket_number = `TKT-${Math.floor(100000 + Math.random() * 900000)}`;
+    const serviceRequest = await ServiceRequest.create({
+      ticket_number,
+      ...request_info,
+      customer_id: customer._id,
+      product_id: product._id,
+      retailer_id: req.user.id,
+      timeline: [{ status: 'PENDING', note: `${request_info.request_type} request created via onboarding` }]
+    });
+
+    successResponse(res, 201, 'Onboarding and service request completed successfully', { 
+      serviceRequest,
+      credentials: {
+        email: customer_info.email,
+        password: 'pass123'
+      }
+    });
+  } catch (error) {
+    errorResponse(res, 500, 'Server Error', error.message);
+  }
+};
+
 
 // @desc    Create service request
 // @route   POST /api/service-requests
