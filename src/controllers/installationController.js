@@ -68,15 +68,23 @@ exports.getAllRequests = async (req, res) => {
 // @access  Private (Retailer)
 exports.createRequest = async (req, res) => {
   try {
-    const { customer_id, product_id } = req.body;
+    let { customer_id, product_id } = req.body;
+
+    const Customer = require('../models/Customer');
+    
+    // If customer is creating the request, resolve their profile ID
+    if (req.user.role === 'customer') {
+      const customerProfile = await Customer.findOne({ user_id: req.user.id });
+      if (!customerProfile) return errorResponse(res, 404, 'Customer profile not found');
+      customer_id = customerProfile._id;
+    }
 
     const product = await Product.findById(product_id);
     if (!product) {
       return errorResponse(res, 404, 'Product not found');
     }
 
-    // Ensure we have the Customer profile ID, not the User ID
-    const Customer = require('../models/Customer');
+    // Ensure we have the Customer profile ID, not the User ID (for non-customer roles)
     let customer = await Customer.findById(customer_id);
     let finalCustomerId = customer_id;
 
@@ -90,15 +98,18 @@ exports.createRequest = async (req, res) => {
       }
     }
 
+    // Determine retailer_id (if customer, use product's registered_by)
+    const finalRetailerId = req.user.role === 'customer' ? product.registered_by : req.user.id;
+
     // Generate Ticket Number
     const ticket_number = `TKT-${Math.floor(100000 + Math.random() * 900000)}`;
 
     const request = await InstallationRequest.create({
       ticket_number,
-      retailer_id: req.user.id,
+      retailer_id: finalRetailerId,
       customer_id: finalCustomerId,
       product_id,
-      timeline: [{ status: 'PENDING', note: 'Request created by retailer' }]
+      timeline: [{ status: 'PENDING', note: `Installation request created by ${req.user.role}` }]
     });
 
     successResponse(res, 201, 'Installation request created successfully', { request });
