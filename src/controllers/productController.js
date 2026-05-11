@@ -117,10 +117,10 @@ exports.getProducts = async (req, res) => {
 // @access  Private (Retailer, Admin)
 exports.assignCustomer = async (req, res) => {
   try {
-    const { customer_id } = req.body;
+    const { customer_id, customer_ref } = req.body;
     
-    if (!customer_id) {
-        return errorResponse(res, 400, 'Please provide customer ID');
+    if (!customer_id && !customer_ref) {
+        return errorResponse(res, 400, 'Please provide customer ID or customer reference');
     }
 
     let product = await Product.findById(req.params.id);
@@ -128,7 +128,8 @@ exports.assignCustomer = async (req, res) => {
       return errorResponse(res, 404, 'Product not found');
     }
 
-    product.customer_id = customer_id;
+    if (customer_id) product.customer_id = customer_id;
+    if (customer_ref) product.customer_ref = customer_ref;
     await product.save();
 
     successResponse(res, 200, 'Customer assigned to product successfully', { product });
