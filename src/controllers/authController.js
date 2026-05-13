@@ -1,4 +1,6 @@
 const User = require('../models/User');
+const ServiceRequest = require('../models/ServiceRequest');
+const InstallationRequest = require('../models/InstallationRequest');
 const { successResponse, errorResponse } = require('../utils/responseHandler');
 const jwt = require('jsonwebtoken');
 
@@ -117,8 +119,27 @@ exports.getUsers = async (req, res) => {
       query.parent_id = req.user.id;
     }
 
-    const users = await User.find(query).select('-password');
-    successResponse(res, 200, 'Users fetched successfully', { users });
+    const users = await User.find(query).select('-password').lean();
+
+    // Fetch active job counts for engineers
+    const usersWithCounts = await Promise.all(users.map(async (user) => {
+      if (user.role === 'engineer') {
+        const [activeServiceRequests, activeInstallations] = await Promise.all([
+          ServiceRequest.countDocuments({
+            assigned_engineer: user._id,
+            status: { $nin: ['COMPLETED', 'CANCELLED'] }
+          }),
+          InstallationRequest.countDocuments({
+            engineer_id: user._id,
+            status: { $ne: 'INSTALLATION_COMPLETED' }
+          })
+        ]);
+        return { ...user, activeJobs: activeServiceRequests + activeInstallations };
+      }
+      return user;
+    }));
+
+    successResponse(res, 200, 'Users fetched successfully', { users: usersWithCounts });
   } catch (error) {
     errorResponse(res, 500, 'Server Error', error.message);
   }
